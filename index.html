@@ -237,8 +237,53 @@
     </div>
   </div>
 
+  <!-- タブバー -->
+  <div id="tabs-bar" class="tabs-bar hidden">
+    <div id="tabs-container" class="tabs-container"></div>
+  </div>
+
   <!-- メインコンテンツ -->
   <main id="main-content">
+    <!-- ウェルカムスクリーン -->
+    <div id="welcome-screen" class="welcome-screen">
+      <div class="welcome-content">
+        <div class="welcome-logo">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+            <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
+            <path d="M9 15l2 2 4-4" />
+          </svg>
+        </div>
+        <h2 class="welcome-title">MarkDown Studio</h2>
+        <p class="welcome-subtitle">ローカルのマークダウンファイルを快適に編集</p>
+
+        <div class="welcome-actions">
+          <button id="btn-welcome-open" class="welcome-btn primary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            ファイルを開く
+          </button>
+          <button id="btn-welcome-new" class="welcome-btn secondary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
+              <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"></path>
+              <line x1="12" y1="11" x2="12" y2="17"></line>
+              <line x1="9" y1="14" x2="15" y2="14"></line>
+            </svg>
+            新規作成
+          </button>
+        </div>
+
+        <div class="welcome-hint">
+          <p>または、ファイルをここにドロップして開く</p>
+        </div>
+      </div>
+    </div>
+
     <!-- アウトラインパネル -->
     <aside id="outline-panel" class="outline-panel hidden">
       <div class="outline-header">

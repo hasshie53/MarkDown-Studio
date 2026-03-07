@@ -1,38 +1,148 @@
 /**
- * file-manager.js - ファイル読み書き管理
+ * file-manager.js - ファイル読み書き管理（マルチタブ対応）
  * File System Access API を使用してローカルファイルの読み書きを行う
  */
+import { createEditorState } from './editor.js';
 
-/** 現在開いているファイルのハンドル */
-let currentFileHandle = null;
+/**
+ * タブのデータ構造:
+ * {
+ *   id: string,               // ユニークID
+ *   name: string,             // ファイル名
+ *   fileHandle: FileSystemFileHandle|null, // ファイルハンドル
+ *   content: string,          // 最新のテキスト内容
+ *   editorState: EditorState, // CodeMirrorのEditorState
+ *   isModified: boolean       // 未保存の変更があるか
+ * }
+ */
 
-/** ファイル変更状態 */
-let isModified = false;
+/** タブの配列 */
+let tabs = [];
 
-/** ファイル名変更コールバック */
-let onFileNameChangeCallback = null;
+/** アクティブなタブのID */
+let activeTabId = null;
 
-/** 保存状態変更コールバック */
-let onSaveStateChangeCallback = null;
+/** イベントコールバック */
+let onTabsChangeCallback = null;
+let onActiveTabChangeCallback = null;
+
+/**
+ * ランダムなIDを生成する
+ */
+function generateId() {
+    return Math.random().toString(36).substring(2, 9);
+}
 
 /**
  * ファイルマネージャーを初期化する
  * @param {Object} options - オプション
- * @param {Function} options.onFileNameChange - ファイル名変更コールバック
- * @param {Function} options.onSaveStateChange - 保存状態変更コールバック
+ * @param {Function} options.onTabsChange - タブ一覧が変更されたときのコールバック
+ * @param {Function} options.onActiveTabChange - アクティブなタブが変更されたときのコールバック
  */
-export function initFileManager({ onFileNameChange, onSaveStateChange } = {}) {
-    onFileNameChangeCallback = onFileNameChange;
-    onSaveStateChangeCallback = onSaveStateChange;
+export function initFileManager({ onTabsChange, onActiveTabChange } = {}) {
+    onTabsChangeCallback = onTabsChange;
+    onActiveTabChangeCallback = onActiveTabChange;
+}
+
+/**
+ * アクティブなタブを取得する
+ */
+export function getActiveTab() {
+    return tabs.find(t => t.id === activeTabId) || null;
+}
+
+/**
+ * すべてのタブを取得する
+ */
+export function getTabs() {
+    return [...tabs];
+}
+
+/**
+ * イベントを通知する
+ */
+function notifyTabsChange() {
+    if (onTabsChangeCallback) {
+        onTabsChangeCallback(getTabs());
+    }
+}
+
+function notifyActiveTabChange() {
+    if (onActiveTabChangeCallback) {
+        onActiveTabChangeCallback(getActiveTab());
+    }
+}
+
+/**
+ * 新しいタブを追加する
+ */
+export function addTab(tabData) {
+    const id = generateId();
+    const newTab = {
+        id,
+        name: tabData.name || '無題のドキュメント',
+        fileHandle: tabData.fileHandle || null,
+        content: tabData.content || '',
+        editorState: tabData.editorState || createEditorState(tabData.content || ''),
+        isModified: tabData.isModified || false
+    };
+
+    tabs.push(newTab);
+    activeTabId = id;
+
+    notifyTabsChange();
+    notifyActiveTabChange();
+
+    return id;
+}
+
+/**
+ * 指定したタブを閉じる
+ */
+export function closeTab(id) {
+    const activeIndex = tabs.findIndex(t => t.id === activeTabId);
+    tabs = tabs.filter(t => t.id !== id);
+
+    if (id === activeTabId) {
+        if (tabs.length > 0) {
+            // 前のタブ（なければ次のタブ）をアクティブにする
+            const nextIndex = Math.min(activeIndex, tabs.length - 1);
+            activeTabId = tabs[nextIndex].id;
+        } else {
+            activeTabId = null;
+        }
+        notifyActiveTabChange();
+    }
+    notifyTabsChange();
+}
+
+/**
+ * アクティブなタブを切り替える
+ */
+export function switchTab(id) {
+    if (activeTabId !== id && tabs.some(t => t.id === id)) {
+        activeTabId = id;
+        notifyTabsChange(); // アクティブ状態の表示を変えるため
+        notifyActiveTabChange();
+    }
+}
+
+/**
+ * アクティブタブのファイル内容・状態を更新する
+ */
+export function updateActiveTab(updates) {
+    const activeTab = getActiveTab();
+    if (!activeTab) return;
+
+    Object.assign(activeTab, updates);
+    notifyTabsChange(); // 名前や未保存フラグの更新用
 }
 
 /**
  * ファイルを開くダイアログを表示し、選択されたファイルの内容を返す
- * @returns {Promise<{content: string, name: string}|null>} ファイル内容とファイル名
  */
 export async function openFile() {
     try {
-        // File System Access API が利用可能かチェック
         if (!window.showOpenFilePicker) {
             return await openFileFallback();
         }
@@ -50,31 +160,17 @@ export async function openFile() {
             multiple: false,
         });
 
-        currentFileHandle = handle;
         const file = await handle.getFile();
         const content = await file.text();
 
-        // ファイル名を通知
-        if (onFileNameChangeCallback) {
-            onFileNameChangeCallback(handle.name);
-        }
-
-        // 保存状態を更新
-        setModified(false);
-
-        return { content, name: handle.name };
+        return { content, name: handle.name, fileHandle: handle };
     } catch (error) {
-        // ユーザーがキャンセルした場合はnullを返す
         if (error.name === 'AbortError') return null;
         console.error('ファイルを開けませんでした:', error);
         throw error;
     }
 }
 
-/**
- * File System Access API が利用できない場合のフォールバック
- * @returns {Promise<{content: string, name: string}|null>}
- */
 async function openFileFallback() {
     return new Promise((resolve) => {
         const input = document.createElement('input');
@@ -89,14 +185,7 @@ async function openFileFallback() {
             }
 
             const content = await file.text();
-            currentFileHandle = null; // フォールバックではハンドルを保持できない
-
-            if (onFileNameChangeCallback) {
-                onFileNameChangeCallback(file.name);
-            }
-
-            setModified(false);
-            resolve({ content, name: file.name });
+            resolve({ content, name: file.name, fileHandle: null });
         };
 
         input.oncancel = () => resolve(null);
@@ -105,23 +194,22 @@ async function openFileFallback() {
 }
 
 /**
- * 現在のファイルに上書き保存する
- * @param {string} content - 保存するテキスト内容
- * @returns {Promise<boolean>} 保存成功時true
+ * 現在のアクティブタブに上書き保存する
  */
 export async function saveFile(content) {
+    const activeTab = getActiveTab();
+    if (!activeTab) return false;
+
     try {
-        // ファイルハンドルがない場合は「名前を付けて保存」にフォールバック
-        if (!currentFileHandle) {
+        if (!activeTab.fileHandle) {
             return await saveFileAs(content);
         }
 
-        // ファイルへの書き込み
-        const writable = await currentFileHandle.createWritable();
+        const writable = await activeTab.fileHandle.createWritable();
         await writable.write(content);
         await writable.close();
 
-        setModified(false);
+        updateActiveTab({ content, isModified: false });
         return true;
     } catch (error) {
         if (error.name === 'AbortError') return false;
@@ -132,18 +220,18 @@ export async function saveFile(content) {
 
 /**
  * 名前を付けて保存ダイアログを表示する
- * @param {string} content - 保存するテキスト内容
- * @returns {Promise<boolean>} 保存成功時true
  */
 export async function saveFileAs(content) {
+    const activeTab = getActiveTab();
+    if (!activeTab) return false;
+
     try {
-        // File System Access API が利用可能かチェック
         if (!window.showSaveFilePicker) {
-            return saveFileFallback(content);
+            return saveFileFallback(content, activeTab);
         }
 
         const handle = await window.showSaveFilePicker({
-            suggestedName: currentFileHandle ? currentFileHandle.name : '無題.md',
+            suggestedName: activeTab.name || '無題.md',
             types: [
                 {
                     description: 'マークダウンファイル',
@@ -156,19 +244,16 @@ export async function saveFileAs(content) {
             ],
         });
 
-        currentFileHandle = handle;
-
-        // ファイルへの書き込み
         const writable = await handle.createWritable();
         await writable.write(content);
         await writable.close();
 
-        // ファイル名を通知
-        if (onFileNameChangeCallback) {
-            onFileNameChangeCallback(handle.name);
-        }
-
-        setModified(false);
+        updateActiveTab({
+            content,
+            name: handle.name,
+            fileHandle: handle,
+            isModified: false
+        });
         return true;
     } catch (error) {
         if (error.name === 'AbortError') return false;
@@ -177,32 +262,25 @@ export async function saveFileAs(content) {
     }
 }
 
-/**
- * File System Access API が利用できない場合のフォールバック保存
- * @param {string} content - 保存するテキスト内容
- * @returns {boolean} 常にtrue
- */
-function saveFileFallback(content) {
+function saveFileFallback(content, activeTab) {
     const blob = new Blob([content], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = '無題.md';
+    a.download = activeTab.name || '無題.md';
     a.click();
     URL.revokeObjectURL(url);
-    setModified(false);
+
+    updateActiveTab({ content, isModified: false });
     return true;
 }
 
 /**
  * ドラッグ&ドロップされたファイルを読み込む
- * @param {File} file - ドロップされたファイル
- * @returns {Promise<{content: string, name: string}|null>}
  */
-export async function openDroppedFile(file) {
+export async function openDroppedFile(file, fileHandle = null) {
     if (!file) return null;
 
-    // マークダウンファイルかチェック
     const validExts = ['.md', '.markdown', '.mdown', '.mkd', '.mdx', '.txt'];
     const ext = '.' + file.name.split('.').pop().toLowerCase();
 
@@ -211,52 +289,6 @@ export async function openDroppedFile(file) {
     }
 
     const content = await file.text();
-    currentFileHandle = null; // ドロップではハンドルを取得できない
-
-    if (onFileNameChangeCallback) {
-        onFileNameChangeCallback(file.name);
-    }
-
-    setModified(false);
-    return { content, name: file.name };
+    return { content, name: file.name, fileHandle };
 }
 
-/**
- * 新規ファイルを作成する（状態をリセット）
- */
-export function newFile() {
-    currentFileHandle = null;
-
-    if (onFileNameChangeCallback) {
-        onFileNameChangeCallback('無題のドキュメント');
-    }
-
-    setModified(false);
-}
-
-/**
- * ファイルの変更状態を設定する
- * @param {boolean} modified - 変更されているかどうか
- */
-export function setModified(modified) {
-    isModified = modified;
-    if (onSaveStateChangeCallback) {
-        onSaveStateChangeCallback(!modified);
-    }
-}
-
-/**
- * ファイルが変更されているかどうかを取得する
- * @returns {boolean} 変更されている場合true
- */
-export function getIsModified() {
-    return isModified;
-}
-
-/**
- * 現在のファイルハンドルを取得する
- * @returns {FileSystemFileHandle|null} 現在のファイルハンドル
- */
-export function getCurrentFileHandle() {
-    return currentFileHandle;
-}

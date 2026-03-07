@@ -51,23 +51,24 @@ export function initEditor(container, { initialContent = '', onChange, onCursorC
     onChangeCallback = onChange;
     onCursorChangeCallback = onCursorChange;
 
-    // エディターの更新を監視するリスナー
-    const updateListener = EditorView.updateListener.of((update) => {
-        // ドキュメントの変更を通知
-        if (update.docChanged && onChangeCallback) {
-            onChangeCallback(update.state.doc.toString());
-        }
-        // カーソル位置の変更を通知
-        if (update.selectionSet && onCursorChangeCallback) {
-            const pos = update.state.selection.main.head;
-            const line = update.state.doc.lineAt(pos);
-            onCursorChangeCallback({
-                line: line.number,
-                col: pos - line.from + 1,
-            });
-        }
+    // エディターステートの作成
+    const state = createEditorState(initialContent);
+
+    // エディタービューの作成
+    editorView = new EditorView({
+        state,
+        parent: container,
     });
 
+    return editorView;
+}
+
+/**
+ * 新しいEditorStateを作成する
+ * @param {string} content - 初期コンテンツ
+ * @returns {EditorState} 新しいエディターステート
+ */
+export function createEditorState(content = '') {
     // エディターの拡張機能一覧
     const extensions = [
         lineNumbers(),
@@ -97,7 +98,21 @@ export function initEditor(container, { initialContent = '', onChange, onCursorC
             ...searchKeymap,
             ...completionKeymap,
         ]),
-        updateListener,
+        EditorView.updateListener.of((update) => {
+            // ドキュメントの変更を通知
+            if (update.docChanged && onChangeCallback) {
+                onChangeCallback(update.state.doc.toString());
+            }
+            // カーソル位置の変更を通知
+            if (update.selectionSet && onCursorChangeCallback) {
+                const pos = update.state.selection.main.head;
+                const line = update.state.doc.lineAt(pos);
+                onCursorChangeCallback({
+                    line: line.number,
+                    col: pos - line.from + 1,
+                });
+            }
+        }),
         // エディターのテーマ設定
         EditorView.theme({
             '&': {
@@ -109,19 +124,19 @@ export function initEditor(container, { initialContent = '', onChange, onCursorC
         }),
     ];
 
-    // エディターステートの作成
-    const state = EditorState.create({
-        doc: initialContent,
+    return EditorState.create({
+        doc: content,
         extensions,
     });
+}
 
-    // エディタービューの作成
-    editorView = new EditorView({
-        state,
-        parent: container,
-    });
-
-    return editorView;
+/**
+ * エディターのStateをまるごと入れ替える（タブ切り替え用）
+ * @param {EditorState} state - 設定するエディターステート
+ */
+export function setEditorState(state) {
+    if (!editorView) return;
+    editorView.setState(state);
 }
 
 /**

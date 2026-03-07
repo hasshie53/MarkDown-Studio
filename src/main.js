@@ -6,10 +6,11 @@
 import './style.css';
 import { initEditor, getContent, setContent } from './editor.js';
 import { initPreview, updatePreview } from './preview.js';
-import { initFileManager, openFile, saveFile, saveFileAs, openDroppedFile, newFile, setModified, getIsModified } from './file-manager.js';
+import { initFileManager, openFile, saveFile, saveFileAs, openDroppedFile, getActiveTab, getTabs, addTab, closeTab, switchTab, updateActiveTab } from './file-manager.js';
 import { initToolbar } from './toolbar.js';
 import { initTheme } from './theme.js';
 import { initOutline, toggleOutline, updateOutline } from './outline.js';
+import { createEditorState, setEditorState } from './editor.js';
 
 /**
  * トースト通知を表示する
@@ -205,21 +206,42 @@ function setupDragAndDrop() {
     dragCounter = 0;
     overlay.classList.add('hidden');
 
-    const file = e.dataTransfer.files[0];
+    // Handle FileAPI with item.getAsFileSystemHandle if possible
+    let file = null;
+    let fileHandle = null;
+
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      const item = e.dataTransfer.items[0];
+      if (item.kind === 'file') {
+        file = item.getAsFile();
+        if (item.getAsFileSystemHandle) {
+          try {
+            const handle = await item.getAsFileSystemHandle();
+            if (handle && handle.kind === 'file') {
+              fileHandle = handle;
+            }
+          } catch (err) {
+            console.warn('Could not get file system handle', err);
+          }
+        }
+      }
+    } else {
+      file = e.dataTransfer.files[0];
+    }
+
     if (!file) return;
 
     try {
-      // 未保存の変更がある場合は確認
-      if (getIsModified()) {
-        const confirmed = await showConfirmDialog('未保存の変更があります。破棄して新しいファイルを開きますか？');
-        if (!confirmed) return;
+      const activeTab = getActiveTab();
+      // タブが1つで未保存かつ空の場合は確認なし（新規直後など）
+      if (activeTab && activeTab.isModified && activeTab.content.trim() !== '') {
+        // タブモデルでは上書きでなく「別タブ」または「そのタブで開く」などを検討しますが
+        // 今回はドロップされたファイルは「新しいタブ」として開く方針に変更します
       }
 
-      const result = await openDroppedFile(file);
+      const result = await openDroppedFile(file, fileHandle);
       if (result) {
-        setContent(result.content);
-        debouncedPreviewUpdate(result.content);
-        updateStatusBar(result.content);
+        addTab(result);
         showToast(`${result.name} を開きました`, 'success');
       }
     } catch (error) {
@@ -229,21 +251,124 @@ function setupDragAndDrop() {
 }
 
 /**
+ * ウェルカムスクリーンとタブバーの表示管理
+ */
+function updateAppVisibility() {
+  const tabs = getTabs();
+  const tabsBar = document.getElementById('tabs-bar');
+  const mainContent = document.getElementById('main-content');
+  const welcome = document.getElementById('welcome-screen');
+
+  if (tabs.length > 0) {
+    tabsBar.classList.remove('hidden');
+    mainContent.classList.remove('no-tabs');
+    if (welcome) welcome.classList.add('hidden');
+  } else {
+    tabsBar.classList.add('hidden');
+    mainContent.classList.add('no-tabs');
+    if (welcome) welcome.classList.remove('hidden');
+
+    // 内容をクリア
+    setContent('');
+    debouncedPreviewUpdate('');
+    updateStatusBar('');
+    updateSaveIndicator(true);
+    document.getElementById('file-name').textContent = ' MarkDown Studio ';
+    document.title = 'MarkDown Studio';
+  }
+}
+
+/**
+ * タブバーのUIを更新する
+ */
+function renderTabs() {
+  const container = document.getElementById('tabs-container');
+  if (!container) return;
+
+  const tabs = getTabs();
+  const activeTab = getActiveTab();
+
+  container.innerHTML = '';
+
+  tabs.forEach(tab => {
+    const tabEl = document.createElement('div');
+    tabEl.className = `tab-item ${activeTab && activeTab.id === tab.id ? 'active' : ''} ${tab.isModified ? 'is-modified' : ''}`;
+
+    // Indicator
+    const indicator = document.createElement('div');
+    indicator.className = 'tab-indicator';
+    tabEl.appendChild(indicator);
+
+    // Name
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'tab-item-name';
+    nameSpan.textContent = tab.name;
+    nameSpan.title = tab.name;
+    tabEl.appendChild(nameSpan);
+
+    // Close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'tab-item-close';
+    closeBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+    closeBtn.title = '閉じる';
+
+    closeBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (tab.isModified) {
+        const confirmed = await showConfirmDialog(`"${tab.name}" に未保存の変更があります。保存せずに閉じますか？`);
+        if (!confirmed) return;
+      }
+      closeTab(tab.id);
+    });
+    tabEl.appendChild(closeBtn);
+
+    // Click to switch
+    tabEl.addEventListener('click', () => {
+      switchTab(tab.id);
+    });
+
+    container.appendChild(tabEl);
+  });
+
+  updateAppVisibility();
+}
+
+/**
+ * アクティブなタブが切り替わったときの処理
+ */
+function handleActiveTabChange(activeTab) {
+  if (activeTab) {
+    // 状態を復元
+    setEditorState(activeTab.editorState);
+    debouncedPreviewUpdate(activeTab.content);
+    updateStatusBar(activeTab.content);
+    updateSaveIndicator(!activeTab.isModified);
+
+    document.getElementById('file-name').textContent = activeTab.name;
+    document.title = `${activeTab.name} - MarkDown Studio`;
+  }
+  renderTabs(); // 選択状態を反映
+}
+
+/**
+ * ウェルカムスクリーンを非表示にする
+ */
+function hideWelcomeScreen() {
+  const welcome = document.getElementById('welcome-screen');
+  if (welcome) {
+    welcome.classList.add('hidden');
+  }
+}
+
+
+/**
  * ファイルを開く操作
  */
 async function handleOpen() {
-  // 未保存の変更がある場合は確認
-  if (getIsModified()) {
-    const confirmed = await showConfirmDialog('未保存の変更があります。破棄して新しいファイルを開きますか？');
-    if (!confirmed) return;
-  }
-
   try {
     const result = await openFile();
     if (result) {
-      setContent(result.content);
-      debouncedPreviewUpdate(result.content);
-      updateStatusBar(result.content);
+      addTab(result);
       showToast(`${result.name} を開きました`, 'success');
     }
   } catch (error) {
@@ -255,9 +380,12 @@ async function handleOpen() {
  * 上書き保存操作
  */
 async function handleSave() {
+  const activeTab = getActiveTab();
+  if (!activeTab) return;
+
   try {
-    const content = getContent();
-    const saved = await saveFile(content);
+    const currentContent = getContent();
+    const saved = await saveFile(currentContent);
     if (saved) {
       showToast('保存しました', 'success');
     }
@@ -270,9 +398,12 @@ async function handleSave() {
  * 名前を付けて保存操作
  */
 async function handleSaveAs() {
+  const activeTab = getActiveTab();
+  if (!activeTab) return;
+
   try {
-    const content = getContent();
-    const saved = await saveFileAs(content);
+    const currentContent = getContent();
+    const saved = await saveFileAs(currentContent);
     if (saved) {
       showToast('保存しました', 'success');
     }
@@ -285,16 +416,10 @@ async function handleSaveAs() {
  * 新規作成操作
  */
 async function handleNew() {
-  // 未保存の変更がある場合は確認
-  if (getIsModified()) {
-    const confirmed = await showConfirmDialog('未保存の変更があります。破棄して新規ドキュメントを作成しますか？');
-    if (!confirmed) return;
-  }
-
-  newFile();
-  setContent('');
-  debouncedPreviewUpdate('');
-  updateStatusBar('');
+  addTab({
+    name: '無題のドキュメント',
+    content: ''
+  });
   showToast('新規ドキュメントを作成しました', 'info');
 }
 
@@ -303,7 +428,8 @@ async function handleNew() {
  */
 function setupBeforeUnload() {
   window.addEventListener('beforeunload', (e) => {
-    if (getIsModified()) {
+    const hasModified = getTabs().some(t => t.isModified);
+    if (hasModified) {
       e.preventDefault();
       e.returnValue = '';
     }
@@ -322,27 +448,43 @@ function init() {
 
   // ファイルマネージャーの初期化
   initFileManager({
-    onFileNameChange: (name) => {
-      document.getElementById('file-name').textContent = name;
-      document.title = `${name} - MarkDown Studio`;
+    onTabsChange: () => {
+      renderTabs();
     },
-    onSaveStateChange: (isSaved) => {
-      updateSaveIndicator(isSaved);
+    onActiveTabChange: (activeTab) => {
+      handleActiveTabChange(activeTab);
     },
   });
 
   // エディターの初期化
   const editorContainer = document.getElementById('editor-container');
+  const dummyState = createEditorState(''); // 初期化用ダミー
+
+  // initEditorに渡すオプションを調整（内部でエディタが作成されるため一旦内容空で起動）
   initEditor(editorContainer, {
     initialContent: '',
     onChange: (content) => {
-      setModified(true);
-      debouncedPreviewUpdate(content);
-      updateStatusBar(content);
+      const activeTab = getActiveTab();
+      if (activeTab) {
+        // エディター側で変更されたら内容を更新する
+        updateActiveTab({ content, isModified: true });
+
+        // エディタ状態も手動でキャプチャするか、もしくは
+        activeTab.editorState = window.editorView ? window.editorView.state : activeTab.editorState;
+
+        debouncedPreviewUpdate(content);
+        updateStatusBar(content);
+        updateSaveIndicator(false);
+      }
     },
     onCursorChange: (cursor) => {
       updateCursorPosition(cursor);
     },
+  });
+
+  // エディタのインスタンスをグローバル参照（手抜きで取れるように）
+  import('./editor.js').then(module => {
+    window.editorView = module.getEditorView();
   });
 
   // アウトラインの初期化
@@ -367,13 +509,12 @@ function init() {
   // ページ離脱時の警告
   setupBeforeUnload();
 
-  // 初期状態を設定
-  updateStatusBar('');
-  updateSaveIndicator(true);
+  // ウェルカムスクリーンのイベント設定
+  document.getElementById('btn-welcome-open')?.addEventListener('click', handleOpen);
+  document.getElementById('btn-welcome-new')?.addEventListener('click', handleNew);
 
-  // 初期プレビュー表示
-  const previewEl = document.getElementById('preview-content');
-  updatePreview(previewEl, '');
+  // 初期設定
+  updateAppVisibility();
 }
 
 // DOMContentLoaded後にアプリを初期化

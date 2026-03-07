@@ -6,28 +6,13 @@
 import { marked } from 'marked';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
+import mermaid from 'mermaid';
 
 /**
  * marked.js の設定を初期化する
  */
 export function initPreview() {
     marked.setOptions({
-        // コードブロックのシンタックスハイライト
-        highlight: function (code, lang) {
-            if (lang && hljs.getLanguage(lang)) {
-                try {
-                    return hljs.highlight(code, { language: lang }).value;
-                } catch {
-                    // ハイライト失敗時はそのまま返す
-                }
-            }
-            // 言語指定なしの場合は自動検出
-            try {
-                return hljs.highlightAuto(code).value;
-            } catch {
-                return code;
-            }
-        },
         // GFM（GitHub Flavored Markdown）を有効にする
         gfm: true,
         // 改行をbrタグに変換
@@ -60,7 +45,57 @@ export function initPreview() {
         return `<a href="${linkHref}"${titleAttr} target="_blank" rel="noopener noreferrer">${linkText}</a>`;
     };
 
+    // コードブロックのカスタムレンダリング (mermaidおよびhighlight対応)
+    const defaultCode = renderer.code;
+    renderer.code = function (...args) {
+        const token = args[0];
+        const codeText = token?.text || args[0];
+        const langInfo = token?.lang || args[1];
+        const isEscaped = args[2] || false;
+
+        if (langInfo === 'mermaid') {
+            const escapedCode = isEscaped ? codeText : codeText
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+            return `<div class="mermaid">${escapedCode}</div>`;
+        }
+
+        // highlight.jsによるシンタックスハイライト（marked v17での回避策）
+        let highlightedCode = codeText;
+        if (langInfo && hljs.getLanguage(langInfo)) {
+            try {
+                highlightedCode = hljs.highlight(codeText, { language: langInfo }).value;
+            } catch {
+                // do nothing
+            }
+        } else if (!langInfo) {
+            try {
+                highlightedCode = hljs.highlightAuto(codeText).value;
+            } catch {
+                // do nothing
+            }
+        }
+
+        // ハイライト済みの場合はカスタムの出力を行う
+        if (highlightedCode !== codeText) {
+            const langClass = langInfo ? ` language-${langInfo}` : '';
+            return `<pre><code class="hljs${langClass}">${highlightedCode}</code></pre>`;
+        }
+
+        return defaultCode.call(this, ...args);
+    };
+
     marked.use({ renderer });
+
+    // Mermaidの初期化
+    mermaid.initialize({
+        startOnLoad: false,
+        theme: document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'default',
+        securityLevel: 'loose', // 信頼できるローカルファイル用
+    });
 }
 
 /**
@@ -86,11 +121,23 @@ export function renderMarkdown(markdownText) {
  * @param {HTMLElement} container - プレビューコンテナ要素
  * @param {string} markdownText - マークダウンテキスト
  */
-export function updatePreview(container, markdownText) {
+export async function updatePreview(container, markdownText) {
     if (!container) return;
 
     const html = renderMarkdown(markdownText);
     container.innerHTML = html;
+
+    // Mermaidの描画を実行
+    try {
+        // テーマの動的切り替え
+        const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default';
+        mermaid.initialize({ theme });
+        await mermaid.run({
+            nodes: container.querySelectorAll('.mermaid'),
+        });
+    } catch (e) {
+        console.warn('Mermaid rendering error:', e);
+    }
 }
 
 /**

@@ -53,6 +53,7 @@
   /* サイジング */
   --header-height: 52px;
   --toolbar-height: 42px;
+  --tabs-height: 38px;
   --status-height: 28px;
   --sidebar-width: 240px;
   --radius-sm: 6px;
@@ -384,9 +385,132 @@ body {
 /* --- メインコンテンツ --- */
 #main-content {
   display: flex;
-  height: calc(100vh - var(--header-height) - var(--toolbar-height) - var(--status-height));
+  height: calc(100vh - var(--header-height) - var(--toolbar-height) - var(--status-height) - var(--tabs-height));
   background: var(--bg-app);
   overflow: hidden;
+  position: relative;
+}
+
+#main-content.no-tabs {
+  height: calc(100vh - var(--header-height) - var(--toolbar-height) - var(--status-height));
+}
+
+/* --- タブバー --- */
+.tabs-bar {
+  display: flex;
+  height: var(--tabs-height);
+  background: var(--bg-editor);
+  border-bottom: 1px solid var(--border-color);
+  overflow: hidden;
+  position: relative;
+}
+
+.tabs-bar.hidden {
+  display: none;
+}
+
+.tabs-container {
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  overflow-x: auto;
+  padding: 0 4px;
+}
+
+.tabs-container::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  height: calc(100% - 4px);
+  min-width: 120px;
+  max-width: 200px;
+  padding: 0 12px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-color);
+  border-bottom: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  margin-right: 2px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.tab-item:hover {
+  background: var(--bg-hover);
+}
+
+.tab-item.active {
+  background: var(--bg-editor);
+  border-top: 2px solid var(--color-primary);
+  border-bottom: 1px solid var(--bg-editor);
+  margin-bottom: -1px;
+  z-index: 2;
+}
+
+.tab-item.active::before,
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 4px;
+  height: 4px;
+  border: 1px solid transparent;
+}
+
+.tab-item-name {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.tab-item.active .tab-item-name {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.tab-item-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  margin-left: 8px;
+  color: var(--text-muted);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: all var(--transition-fast);
+}
+
+.tab-item:hover .tab-item-close,
+.tab-item.active .tab-item-close {
+  opacity: 1;
+}
+
+.tab-item-close:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.tab-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-warning);
+  margin-right: 6px;
+  display: none;
+}
+
+.tab-item.is-modified .tab-indicator {
+  display: block;
 }
 
 /* --- アウトラインパネル --- */
@@ -1148,4 +1272,113 @@ body {
 /* ダークモード時のCodeMirrorカスタマイズ */
 [data-theme="dark"] .cm-editor .cm-gutters {
   background: var(--bg-editor);
+}
+
+/* --- ウェルカムスクリーン --- */
+.welcome-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-app);
+  z-index: 50;
+  transition: opacity var(--transition-normal);
+}
+
+.welcome-screen.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.welcome-content {
+  text-align: center;
+  max-width: 480px;
+  padding: 48px;
+  animation: slideUp 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.welcome-logo {
+  color: var(--color-primary);
+  margin-bottom: 24px;
+  display: inline-flex;
+  padding: 20px;
+  background: var(--color-primary-light);
+  border-radius: var(--radius-lg);
+}
+
+.welcome-title {
+  font-size: 32px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.welcome-subtitle {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin-bottom: 40px;
+  line-height: 1.6;
+}
+
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.welcome-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+.welcome-btn.primary {
+  background: var(--color-primary);
+  color: white;
+  box-shadow: var(--shadow-md);
+}
+
+.welcome-btn.primary:hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.welcome-btn.secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-color-strong);
+}
+
+.welcome-btn.secondary:hover {
+  background: var(--bg-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.welcome-hint {
+  font-size: 14px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }

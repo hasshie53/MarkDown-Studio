@@ -72,6 +72,12 @@ export function initToolbar({ onViewModeChange, onOutlineToggle, onSave, onSaveA
         cycleViewMode();
     });
 
+    // 印刷ボタン
+    const btnPrint = document.getElementById('btn-print');
+    if (btnPrint) {
+        btnPrint.addEventListener('click', () => window.print());
+    }
+
     // ヘッダーボタンのイベント
     document.getElementById('btn-new').addEventListener('click', () => onNew && onNew());
     document.getElementById('btn-open').addEventListener('click', () => onOpen && onOpen());
@@ -173,6 +179,12 @@ function setupKeyboardShortcuts({ onSave, onSaveAs, onOpen, onNew }) {
                     // Ctrl+3: 見出し3
                     e.preventDefault();
                     actions.heading3();
+                    break;
+
+                case 'p':
+                    // Ctrl+P: 印刷
+                    e.preventDefault();
+                    window.print();
                     break;
             }
         }

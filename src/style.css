@@ -1382,3 +1382,156 @@ body {
   justify-content: center;
   gap: 8px;
 }
+
+/* --- 印刷用スタイル --- */
+@media print {
+
+  /* ライトテーマを強制 */
+  :root,
+  [data-theme="dark"] {
+    --color-primary: #6366f1;
+    --color-primary-hover: #4f46e5;
+    --color-primary-light: rgba(99, 102, 241, 0.1);
+    --color-primary-glow: rgba(99, 102, 241, 0.25);
+    --color-accent: #8b5cf6;
+    --color-success: #10b981;
+    --color-warning: #f59e0b;
+    --color-danger: #ef4444;
+
+    --bg-app: #ffffff;
+    --bg-header: #ffffff;
+    --bg-toolbar: #ffffff;
+    --bg-editor: #ffffff;
+    --bg-preview: #ffffff;
+    --bg-sidebar: #ffffff;
+    --bg-status: #ffffff;
+    --bg-hover: rgba(99, 102, 241, 0.07);
+    --bg-active: rgba(99, 102, 241, 0.12);
+    --bg-tooltip: #ffffff;
+    --bg-toast: #ffffff;
+    --bg-drop-overlay: transparent;
+
+    --text-primary: #000000;
+    --text-secondary: #333333;
+    --text-muted: #666666;
+    --text-inverse: #ffffff;
+    --text-link: #6366f1;
+
+    --border-color: #cccccc;
+    --border-color-strong: #999999;
+    --border-color-focus: #6366f1;
+
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+    --shadow-glow: none;
+  }
+
+  /* 印刷対象以外のすべてのUI要素を非表示 */
+  #app-header,
+  #toolbar,
+  #tabs-bar,
+  #outline-panel,
+  #editor-panel,
+  #resize-handle,
+  #status-bar,
+  #drop-overlay,
+  .toast-container,
+  #confirm-overlay,
+  .welcome-screen {
+    display: none !important;
+  }
+
+  /* プレビューパネルのみ表示し、全体の高さを解除 */
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  #main-content {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  #preview-panel {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    border: none !important;
+    background: transparent !important;
+    width: 100% !important;
+  }
+
+  .preview-content {
+    height: auto !important;
+    overflow: visible !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+
+  /* markdown-body のダークモードを強制的にライトモードに上書き */
+  .title,
+  .preview-content h1,
+  .preview-content h2,
+  .preview-content h3,
+  .preview-content h4,
+  .preview-content h5,
+  .preview-content h6,
+  .preview-content p,
+  .preview-content li,
+  .preview-content table {
+    color: #000000 !important;
+    -webkit-text-fill-color: initial !important;
+    background: none !important;
+  }
+
+  .preview-content pre,
+  .preview-content code {
+    background: #f8f9fc !important;
+    border: 1px solid #cccccc !important;
+    color: #333333 !important;
+  }
+
+  .preview-content blockquote {
+    color: #555555 !important;
+    border-left: 4px solid #cccccc !important;
+  }
+
+  .preview-content table th,
+  .preview-content table td {
+    border: 1px solid #cccccc !important;
+  }
+
+  /* 用紙と改ページの制御 */
+  @page {
+    size: A4;
+    margin: 20mm;
+  }
+
+  /* 図や画像の途中切れを防ぐ */
+  img,
+  pre,
+  blockquote,
+  figure,
+  table,
+  tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+}

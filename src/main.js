@@ -889,6 +889,73 @@ function init() {
 
   // 初期設定
   updateAppVisibility();
+
+  // スクロール同期の設定
+  setupScrollSync();
+}
+
+/**
+ * エディタのスクロール位置とプレビューのスクロール位置を同期させる
+ */
+function setupScrollSync() {
+  const previewContent = document.getElementById('preview-content');
+  let isSyncingLeft = false;
+  let isSyncingRight = false;
+
+  // 定期的にエディタのDOM要素を取得して監視を設定する（エディタの初期化完了を待つ）
+  const checkEditorInterval = setInterval(() => {
+    if (window.editorView && window.editorView.scrollDOM) {
+      clearInterval(checkEditorInterval);
+      const editorScrollDOM = window.editorView.scrollDOM;
+
+      // エディタのスクロールイベント
+      editorScrollDOM.addEventListener('scroll', () => {
+        if (!previewContent || isSyncingLeft) return;
+
+        isSyncingRight = true;
+
+        const maxEditorScroll = editorScrollDOM.scrollHeight - editorScrollDOM.clientHeight;
+        const maxPreviewScroll = previewContent.scrollHeight - previewContent.clientHeight;
+
+        if (maxEditorScroll > 0) {
+          const scrollPercentage = editorScrollDOM.scrollTop / maxEditorScroll;
+          // スムーズスクロールの一時的な回避
+          previewContent.style.scrollBehavior = 'auto';
+          previewContent.scrollTop = maxPreviewScroll * scrollPercentage;
+          previewContent.style.scrollBehavior = '';
+        }
+
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            isSyncingRight = false;
+          }, 10);
+        });
+      });
+
+      // プレビューのスクロールイベント
+      if (previewContent) {
+        previewContent.addEventListener('scroll', () => {
+          if (isSyncingRight) return;
+
+          isSyncingLeft = true;
+
+          const maxEditorScroll = editorScrollDOM.scrollHeight - editorScrollDOM.clientHeight;
+          const maxPreviewScroll = previewContent.scrollHeight - previewContent.clientHeight;
+
+          if (maxPreviewScroll > 0) {
+            const scrollPercentage = previewContent.scrollTop / maxPreviewScroll;
+            editorScrollDOM.scrollTop = maxEditorScroll * scrollPercentage;
+          }
+
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              isSyncingLeft = false;
+            }, 10);
+          });
+        });
+      }
+    }
+  }, 100);
 }
 
 // DOMContentLoaded後にアプリを初期化

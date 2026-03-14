@@ -4,7 +4,7 @@
  */
 
 import { extractHeadings } from './preview.js';
-import { scrollToLine } from './editor.js';
+import { scrollToLine, getContent } from './editor.js';
 
 /** アウトライン表示状態 */
 let isOutlineVisible = false;
@@ -42,6 +42,12 @@ export function toggleOutline() {
     const btn = document.getElementById('btn-outline-toggle');
     if (btn) {
         btn.classList.toggle('active', isOutlineVisible);
+    }
+
+    // パネルを開くタイミングで現在のエディター内容を反映する
+    // （ファイルを開いた直後など、まだ更新されていない場合に対応）
+    if (isOutlineVisible) {
+        updateOutline(getContent());
     }
 }
 

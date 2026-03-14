@@ -42,8 +42,9 @@ let onOutlineToggleCallback = null;
  * @param {Function} options.onSaveAs - 別名保存コールバック
  * @param {Function} options.onOpen - ファイルを開くコールバック
  * @param {Function} options.onNew - 新規作成コールバック
+ * @param {Function} options.onOpenFolder - フォルダを開くコールバック
  */
-export function initToolbar({ onViewModeChange, onOutlineToggle, onSave, onSaveAs, onOpen, onNew } = {}) {
+export function initToolbar({ onViewModeChange, onOutlineToggle, onSave, onSaveAs, onOpen, onNew, onOpenFolder } = {}) {
     onViewModeChangeCallback = onViewModeChange;
     onOutlineToggleCallback = onOutlineToggle;
 
@@ -85,7 +86,7 @@ export function initToolbar({ onViewModeChange, onOutlineToggle, onSave, onSaveA
     document.getElementById('btn-save-as').addEventListener('click', () => onSaveAs && onSaveAs());
 
     // キーボードショートカットの設定
-    setupKeyboardShortcuts({ onSave, onSaveAs, onOpen, onNew });
+    setupKeyboardShortcuts({ onSave, onSaveAs, onOpen, onNew, onOpenFolder });
 }
 
 /**
@@ -116,7 +117,7 @@ function cycleViewMode() {
  * キーボードショートカットを設定する
  * @param {Object} callbacks - コールバック関数
  */
-function setupKeyboardShortcuts({ onSave, onSaveAs, onOpen, onNew }) {
+function setupKeyboardShortcuts({ onSave, onSaveAs, onOpen, onNew, onOpenFolder }) {
     document.addEventListener('keydown', (e) => {
         const isCtrl = e.ctrlKey || e.metaKey;
 
@@ -134,9 +135,14 @@ function setupKeyboardShortcuts({ onSave, onSaveAs, onOpen, onNew }) {
                     break;
 
                 case 'o':
-                    // Ctrl+O: 開く
                     e.preventDefault();
-                    if (onOpen) onOpen();
+                    if (e.shiftKey) {
+                        // Ctrl+Shift+O: フォルダを開く
+                        if (onOpenFolder) onOpenFolder();
+                    } else {
+                        // Ctrl+O: 開く
+                        if (onOpen) onOpen();
+                    }
                     break;
 
                 case 'n':

@@ -48,6 +48,15 @@
         </svg>
         <span>開く</span>
       </button>
+      <button id="btn-open-folder" class="header-btn" title="フォルダを開く (Ctrl+Shift+O)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          <line x1="12" y1="11" x2="12" y2="17" />
+          <line x1="9" y1="14" x2="15" y2="14" />
+        </svg>
+        <span>フォルダ</span>
+      </button>
       <button id="btn-save" class="header-btn" title="上書き保存 (Ctrl+S)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">
@@ -252,6 +261,57 @@
 
   <!-- メインコンテンツ -->
   <main id="main-content">
+    <!-- ワークスペースパネル（フォルダツリー＋全文検索） -->
+    <aside id="workspace-panel" class="workspace-panel hidden">
+      <div class="workspace-header">
+        <div class="workspace-header-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
+          <span id="workspace-name" class="workspace-name">ワークスペース</span>
+        </div>
+        <button id="btn-workspace-close" class="workspace-close-btn" title="閉じる">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- 全文検索エリア -->
+      <div class="workspace-search-area">
+        <div class="workspace-search-input-wrapper">
+          <svg class="workspace-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            id="workspace-search-input"
+            type="text"
+            class="workspace-search-input"
+            placeholder="フォルダ内を検索..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="btn-workspace-search-clear" class="workspace-search-clear hidden" title="クリア">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div id="workspace-search-results" class="workspace-search-results hidden"></div>
+      </div>
+
+      <!-- ファイルツリー -->
+      <div id="workspace-tree" class="workspace-tree">
+        <div class="workspace-tree-empty">フォルダを開いてください</div>
+      </div>
+    </aside>
     <!-- ウェルカムスクリーン -->
     <div id="welcome-screen" class="welcome-screen">
       <div class="welcome-content">
@@ -273,6 +333,15 @@
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
             </svg>
             ファイルを開く
+          </button>
+          <button id="btn-welcome-open-folder" class="welcome-btn primary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              <line x1="12" y1="11" x2="12" y2="17"></line>
+              <line x1="9" y1="14" x2="15" y2="14"></line>
+            </svg>
+            フォルダを開く
           </button>
           <button id="btn-welcome-new" class="welcome-btn secondary">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
